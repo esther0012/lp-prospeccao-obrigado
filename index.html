@@ -181,10 +181,99 @@ input::placeholder{color:#6B7C74}
   <p class="selo">Consórcio imobiliário é produto regulado e fiscalizado pelo Banco Central do Brasil. Não constitui promessa de rentabilidade ou de prazo de contemplação.</p>
 
 </div>
-<script>(function(){
+<script>
+(function(){
+  // ====== CONFIG ======
+  var WEBHOOK_WPP  = "https://nitro-app.referenciacapital.tech/webhook/ttb-mensagem-reversa";
+  var WPP_FALLBACK = "https://api.whatsapp.com/send/?phone=5561000000000&text&type=phone_number&app_absent=0";
+  var ORIGEM_LP    = "lp-prospeccao";
+  var ESPERA_MS    = 3000; // tempo maximo esperando o numero do SDR
+  // ====================
+
   var q=new URLSearchParams(location.search);
-  var nome=q.get('n')||'';
+
+  // aceita variacoes de nome dos parametros, venham de onde vierem
+  function param(){
+    for(var i=0;i<arguments.length;i++){
+      var v=q.get(arguments[i]);
+      if(v){return v;}
+    }
+    return '';
+  }
+  function guarda(chave,valor){
+    try{
+      if(valor){sessionStorage.setItem('rc_'+chave,valor);return valor;}
+      return sessionStorage.getItem('rc_'+chave)||'';
+    }catch(e){return valor||'';}
+  }
+  function cookie(nome){
+    var m=document.cookie.match('(^|;)\\s*'+nome+'\\s*=\\s*([^;]+)');
+    return m?decodeURIComponent(m.pop()):'';
+  }
+
+  var ORIGEM   = param('origem','lp')||ORIGEM_LP;
+  var LEAD_ID  = guarda('lead_id_'+ORIGEM, param('lead_id','leadid','lead','lid','id_unico'));
+  var TELEFONE = guarda('telefone_'+ORIGEM, param('telefone','tel','phone','whatsapp','cellphone')).replace(/\D/g,'');
+  var FBCLID   = param('fbclid');
+  // a LP de cadastro esta em outro dominio, entao os cookies do Meta vem pela URL;
+  // se esta pagina tiver pixel proprio, o cookie local vale como reserva
+  var FBP      = param('fbp')||cookie('_fbp');
+  var FBC      = param('fbc')||cookie('_fbc');
+
+  var nome=param('n','nome');
   if(nome){document.getElementById('done-h').textContent="Recebido, "+nome;}
-})();</script>
+
+  // ---- botao do WhatsApp: usa o numero do SDR que o fluxo devolver ----
+  var botao=document.querySelector('.done a.cta');
+  var destino='';        // preenchido quando o fluxo responder
+  var resolvido=false;   // ja sabemos (ou desistimos de saber) o destino
+  var pendente=false;    // usuario clicou antes da resposta chegar
+
+  function fixa(url){
+    if(resolvido){return;}
+    resolvido=true;
+    destino=url||WPP_FALLBACK;
+    if(botao){botao.setAttribute('href',destino);}
+    if(pendente){pendente=false;window.location.href=destino;}
+  }
+
+  if(botao){
+    botao.setAttribute('href',WPP_FALLBACK);
+    botao.addEventListener('click',function(e){
+      if(resolvido){return;}          // href ja esta certo, deixa navegar
+      e.preventDefault();
+      pendente=true;
+      botao.style.opacity='.7';
+      setTimeout(function(){if(pendente){pendente=false;window.location.href=WPP_FALLBACK;}},ESPERA_MS);
+    });
+  }
+
+  // sem lead_id e sem telefone nao da para acionar a fila de SDR: fica no numero padrao
+  if(!LEAD_ID && !TELEFONE){
+    fixa(WPP_FALLBACK);
+    return;
+  }
+
+  setTimeout(function(){fixa(WPP_FALLBACK);},ESPERA_MS);
+
+  fetch(WEBHOOK_WPP,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      lead_id:LEAD_ID,
+      telefone:TELEFONE,
+      pagina:location.href,
+      origem:ORIGEM,
+      _fbp:FBP,
+      _fbc:FBC,
+      fbclid:FBCLID
+    })
+  }).then(function(r){return r.json();}).then(function(d){
+    fixa(d && d.redirect_url ? d.redirect_url : WPP_FALLBACK);
+  }).catch(function(){
+    fixa(WPP_FALLBACK);
+  });
+})();
+</script>
 </body>
 </html>
