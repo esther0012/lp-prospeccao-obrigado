@@ -131,6 +131,19 @@ input::placeholder{color:#6B7C74}
 #form-view.hidden{display:none}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
+<!-- Meta Pixel -->
+<script>
+!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+document,'script','https://connect.facebook.net/en_US/fbevents.js');
+fbq('init','1761905857999115');
+fbq('track','PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=1761905857999115&ev=PageView&noscript=1" alt=""></noscript>
+<!-- /Meta Pixel -->
 </head>
 <body>
 <div class="wrap">
@@ -222,6 +235,12 @@ input::placeholder{color:#6B7C74}
 
   var nome=param('n','nome');
   if(nome){document.getElementById('done-h').textContent="Recebido, "+nome;}
+
+  // ---- Meta: Lead. eventID = lead_id para deduplicar com a CAPI ----
+  if(window.fbq){
+    fbq('track','Lead',{content_name:ORIGEM,content_category:'obrigado'},
+        LEAD_ID?{eventID:LEAD_ID}:undefined);
+  }
 
   // ---- botao do WhatsApp: usa o numero do SDR que o fluxo devolver ----
   var botao=document.querySelector('.done a.cta');
